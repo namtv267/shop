@@ -1,0 +1,6 @@
+stages:
+  - test
+  - build_img_order
+  - push_img_product
+
+test:
