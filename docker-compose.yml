@@ -1,0 +1,110 @@
+name: microshop-dev
+
+volumes:
+  pgdata: {}
+  mongodata: {}
+  grafana: {}
+
+networks:
+  was-net:
+    driver: bridge
+
+services:
+  postgresdb:
+    image: postgres
+    container_name: pg_product
+    environment:
+      POSTGRES_DB: productdb
+      POSTGRES_USER: product
+      POSTGRES_PASSWORD: pass
+    ports: ["5432:5432"]     # có thể bỏ nếu không cần truy cập từ host
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./tools/postgresdb/:/docker-entrypoint-initdb.d/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks: [was-net]
+
+  mongodb:
+    image: mongo
+    container_name: mg_order
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: order
+      MONGO_INITDB_ROOT_PASSWORD: pass
+    ports: ["27017:27017"]   # có thể bỏ nếu không cần truy cập từ host
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "localhost/test", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+    networks: [was-net]
+
+  product:
+    build:
+      context: .
+      dockerfile: product.Dockerfile
+    depends_on:
+      postgresdb:
+        condition: service_healthy
+    ports: ["8082:8082"]
+    networks: [was-net]
+
+  order:
+    build:
+      context: .
+      dockerfile: order.Dockerfile
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports: ["8083:8083"]
+    networks: [was-net]
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prom_moni_was
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--web.enable-lifecycle"]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["9090:9090"]
+    networks: [was-net]
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: prom_alert_was
+    command: ['--config.file=/etc/alertmanager/alertmanager.yml']
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    environment:
+      SLACK_WEBHOOK_URL: https://hooks.slack.com/services/XXX/YYY/ZZZ
+      ALERT_EMAIL_TO: alerts@maildev.com
+    ports: ["9093:9093"]
+    networks: [was-net]
+
+  grafana:
+    image: grafana/grafana
+    container_name: gf_monitoring_was
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: pass
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+#      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    networks: [was-net]
+    depends_on:
+      - prometheus
+
+  maildev:
+    image: maildev/maildev
+    container_name: mail_was
+    ports:
+      - "1080:1080"  # UI
+      - "1025:1025"  # SMTP
+    networks: [was-net]

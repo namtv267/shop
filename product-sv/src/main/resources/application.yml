@@ -1,0 +1,31 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: ProductService
+
+  datasource:
+    url: jdbc:postgresql://postgresdb:5432/productdb
+    username: product
+    password: pass
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enable: true
+  metrics:
+    tags:
+      application: ${SPRING_APP_NAME:product}

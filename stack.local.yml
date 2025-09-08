@@ -1,0 +1,221 @@
+version: "3.8"
+
+networks:
+  frontend:
+    driver: overlay
+  backend:
+    driver: overlay
+  monitoring:
+    driver: overlay
+
+volumes:
+  mongo_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+configs:
+  prometheus.yml:
+    file: ./infra/prometheus/prometheus.yml
+
+services:
+  # =======================
+  # Application Frontend
+  # =======================
+#  web:
+#    image: ghcr.io/you/web-frontend:1.0.0
+#    command: ["node", "server.js"]     # đổi theo app bạn
+#    environment:
+#      - NODE_ENV=production
+#      - ORDER_API_URL=http://order:8081
+#      - PRODUCT_API_URL=http://product:8082
+#    ports:
+#      - target: 3000
+#        published: 80
+#        protocol: tcp
+#        mode: ingress
+#    networks:
+#      - frontend
+#      - backend
+#    deploy:
+#      replicas: 2
+#      update_config:
+#        parallelism: 1
+#        delay: 10s
+#        order: start-first
+#        failure_action: rollback
+#      restart_policy:
+#        condition: on-failure
+#      resources:
+#        limits:
+#          cpus: "0.5"
+#          memory: 512M
+#        reservations:
+#          cpus: "0.25"
+#          memory: 256M
+#    healthcheck:
+#      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+#      interval: 15s
+#      timeout: 3s
+#      retries: 3
+
+  # =======================
+  # Java Backends
+  # =======================
+  order:
+    image: microshop-dev-order-sv
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - SERVER_PORT=8083
+      - MONGO_URI=mongodb://order:pass@mongodb:27017/order?authSource=admin
+    networks:
+      - backend
+      - monitoring
+    depends_on:
+      - mongo
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8083/actuator/health | grep -q UP || exit 1"]
+      interval: 20s
+      timeout: 4s
+      retries: 5
+
+  product:
+    image: microshop-dev-product-sv
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - SERVER_PORT=8082
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/productdb
+      - POSTGRES_USER=product
+      - POSTGRES_PASSWORD=pass
+    networks:
+      - backend
+      - monitoring
+    depends_on:
+      - postgres
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8083/actuator/health | grep -q UP || exit 1"]
+      interval: 20s
+      timeout: 4s
+      retries: 5
+
+  # =======================
+  # Databases
+  # =======================
+  mongodb:
+    image: mongo:6
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - backend
+    deploy:
+#      placement:
+#        constraints:
+#          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 })' || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  postgresdb:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=productdb
+      - POSTGRES_USER=product
+      - POSTGRES_PASSWORD=pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+#      placement:
+#        constraints:
+#          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product -d productdb -h 127.0.0.1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # =======================
+  # Monitoring
+  # =======================
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+    ports:
+      - target: 9090
+        published: 9090
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - prometheus_data:/prometheus
+    configs:
+      - source: prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+    networks:
+      - monitoring
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: ingress
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=pass
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure

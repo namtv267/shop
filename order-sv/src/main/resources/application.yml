@@ -1,0 +1,24 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: OrderService
+
+  data:
+    mongodb:
+      uri: mongodb://order:pass@mongodb:27017/orderdb?authSource=admin
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${SPRING_APP_NAME:order}

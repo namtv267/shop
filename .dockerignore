@@ -1,0 +1,14 @@
+product.Dockerfile
+order.Dockerfile
+.dockerignore
+*.md
+.gitignore
+gradlew
+.gradle
+.git
+.github
+.idea
+**/build/**
+**/test/**
+
+

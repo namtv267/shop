@@ -1,0 +1,229 @@
+{
+  "uid": "springboot-overview",
+  "title": "Spring Boot — Overview (Micrometer/Prometheus)",
+  "schemaVersion": 38,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "tags": ["spring boot", "micrometer", "prometheus"],
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "type": "datasource",
+        "query": "prometheus",
+        "refresh": 1,
+        "current": { "selected": true }
+      },
+      {
+        "name": "job",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "$ds" },
+        "query": "label_values(up, job)",
+        "includeAll": false,
+        "refresh": 2,
+        "sort": 1
+      },
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "$ds" },
+        "query": "label_values(up{job=\"$job\"}, instance)",
+        "includeAll": true,
+        "refresh": 2,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Target UP",
+      "id": 1,
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "avg(up{job=\"$job\", instance=~\"$instance\"})", "legendFormat": "UP" }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": 0 }, { "color": "green", "value": 1 } ] }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Process CPU %",
+      "id": 2,
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "avg(process_cpu_usage{job=\"$job\", instance=~\"$instance\"}) * 100" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100,
+          "thresholds": { "mode": "percentage", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 70 }, { "color": "red", "value": 90 } ] },
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Heap Used / Max",
+      "id": 3,
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "sum(jvm_memory_used_bytes{job=\"$job\",area=\"heap\",instance=~\"$instance\"})" },
+        { "expr": "sum(jvm_memory_max_bytes{job=\"$job\",area=\"heap\",instance=~\"$instance\"})" }
+      ],
+      "options": { "showThresholdLabels": false, "showThresholdMarkers": true },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP RPS (by status)",
+      "id": 4,
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "sum by (status) (rate(http_server_requests_seconds_count{job=\"$job\",instance=~\"$instance\"}[1m]))", "legendFormat": "{{status}}" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"$job\",instance=~\"$instance\"}[1m]))", "legendFormat": "total" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP Latency p95 / p99 (seconds)",
+      "id": 5,
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"$job\",instance=~\"$instance\"}[5m])))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"$job\",instance=~\"$instance\"}[5m])))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "HTTP Error Rate (5xx rps)",
+      "id": 6,
+      "gridPos": { "x": 0, "y": 10, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"$job\",instance=~\"$instance\",status=~\"5..\"}[1m]))" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "req/s",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.5 }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Live Threads",
+      "id": 7,
+      "gridPos": { "x": 4, "y": 10, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "sum(jvm_threads_live_threads{job=\"$job\",instance=~\"$instance\"})", "legendFormat": "threads" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "GC Pauses (count/s) & Time (s)",
+      "id": 8,
+      "gridPos": { "x": 8, "y": 10, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "sum(rate(jvm_gc_pause_seconds_count{job=\"$job\",instance=~\"$instance\"}[5m]))", "legendFormat": "count/s" },
+        { "expr": "sum(rate(jvm_gc_pause_seconds_sum{job=\"$job\",instance=~\"$instance\"}[5m]))", "legendFormat": "time/s" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Hikari Connections (active / max)",
+      "id": 9,
+      "gridPos": { "x": 16, "y": 10, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "max by (pool) (hikaricp_connections_active{job=\"$job\",instance=~\"$instance\"})", "legendFormat": "active ({{pool}})" },
+        { "expr": "max by (pool) (hikaricp_connections_max{job=\"$job\",instance=~\"$instance\"})", "legendFormat": "max ({{pool}})" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Non-Heap Memory Used",
+      "id": 10,
+      "gridPos": { "x": 0, "y": 14, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "sum(jvm_memory_used_bytes{job=\"$job\",area=\"nonheap\",instance=~\"$instance\"})", "legendFormat": "nonheap" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Uptime (seconds)",
+      "id": 11,
+      "gridPos": { "x": 8, "y": 14, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "max(time() - process_start_time_seconds{job=\"$job\",instance=~\"$instance\"})", "legendFormat": "uptime" }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Top 5 Slowest HTTP (avg over 5m)",
+      "id": 12,
+      "gridPos": { "x": 16, "y": 14, "w": 8, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        {
+          "expr": "topk(5, sum by (uri) ( rate(http_server_requests_seconds_sum{job=\"$job\",instance=~\"$instance\"}[5m]) / rate(http_server_requests_seconds_count{job=\"$job\",instance=~\"$instance\"}[5m]) ))",
+          "legendFormat": "{{uri}}"
+        }
+      ],
+      "transformations": [ { "id": "organize" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Logback Events by Level (rate 1m)",
+      "id": 13,
+      "gridPos": { "x": 0, "y": 18, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "sum by (level) (rate(logback_events_total{job=\"$job\",instance=~\"$instance\"}[1m]))", "legendFormat": "{{level}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP Active Requests",
+      "id": 14,
+      "gridPos": { "x": 12, "y": 18, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "$ds" },
+      "targets": [
+        { "expr": "sum(http_server_requests_active{job=\"$job\",instance=~\"$instance\"})", "legendFormat": "active" }
+      ]
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "type": "dashboard",
+        "name": "Annotations & Alerts",
+        "enable": true
+      }
+    ]
+  }
+}

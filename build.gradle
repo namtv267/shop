@@ -1,0 +1,93 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.5' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+allprojects {
+    group = 'com.xxxx'
+    version = '1.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+
+}
+
+subprojects {
+    apply plugin: 'java'
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+
+    tasks.named('jar') {
+        enabled = false
+    }
+
+
+}
+
+project(':order-sv') {
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+
+    dependencies {
+        implementation 'io.micrometer:micrometer-registry-prometheus'
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    }
+
+    springBoot {
+        buildInfo()
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+
+    tasks.named('bootJar') {
+        archiveBaseName.set(project.name)
+        archiveVersion.set(project.version.toString())
+        archiveClassifier.set("classifier")
+    }
+}
+
+project(':product-sv') {
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+
+    dependencies {
+        implementation 'io.micrometer:micrometer-registry-prometheus'
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        runtimeOnly 'org.postgresql:postgresql'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    }
+
+    springBoot {
+        buildInfo()
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+
+    tasks.named('bootJar') {
+        archiveBaseName.set(project.name)
+        archiveVersion.set(project.version.toString())
+        archiveClassifier.set("classifier")
+    }
+}

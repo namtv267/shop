@@ -1,0 +1,27 @@
+groups:
+  - name: microshop.rules
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Target down ({{ $labels.job }})"
+          description: "{{ $labels.instance }} is down"
+
+      - alert: HighErrorRate
+        expr: rate(http_server_requests_seconds_count{outcome="SERVER_ERROR"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "5xx error rate high ({{ $labels.job }})"
+
+      - alert: HighJVMHeapUsage
+        expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.85
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM heap > 85% ({{ $labels.job }})"
