@@ -1,3 +1,5 @@
+![Docker-stack-service-node.png](Docker-stack-service-node.png)
+
 ```shell
 $ docker rm $(docker ps -a -q) || 1
 $ docker image rm $(docker images -q) || 1
@@ -22,5 +24,6 @@ $ docker swarm init --advertise-addr eth0
 $ docker node ls
 $ docker node update --label-add db=true docker-desktop
 $ docker stack deploy -c stack.local.yml shop-dunn
-$ docker service update --force
+$ docker service update --force stack_service_name
+
 ```
