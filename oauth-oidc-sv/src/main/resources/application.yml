@@ -1,0 +1,18 @@
+server:
+  port: 8081
+
+shop:
+  sso:
+    client:
+      registration:
+        neo:
+          client-id:
+          client-secret:
+          scope: openid
+          authorization-grant-type: authorization_code
+      provider:
+        neo:
+          issuer-uri: http://localhost:4000
+          authorization-uri: ${shop.sso.provider.neo.issuer-uri:http://localhost:4000}/oidc/authorization
+          token-uri: ${shop.sso.provider.neo.issuer-uri:http://localhost:4000}/token
+          user-info: ${shop.sso.provider.neo.issuer-uri:http://localhost:4000}/info

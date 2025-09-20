@@ -1,3 +1,4 @@
 rootProject.name = 'shop-com'
 include 'order-sv'
 include 'product-sv'
+include 'oauth-oidc-sv'
