@@ -1,4 +1,4 @@
 scrape_configs:
   - job_name: 'fluentd'
     static_configs:
-      - targets: ['fluentd-service:24231']   # hoặc IP/hostname cụ thể
+      - targets: ['task.fluentd:24231']   # hoặc IP/hostname cụ thể
