@@ -16,12 +16,12 @@ services:
       - "24220:24220"    # (tuỳ chọn) monitor_agent
 
     # (khuyên dùng) healthcheck để Swarm biết container còn sống
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:24231/metrics >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+#    healthcheck:
+#      test: ["CMD-SHELL", "wget -qO- http://localhost:24231/metrics >/dev/null 2>&1 || exit 1"]
+#      interval: 30s
+#      timeout: 5s
+#      retries: 5
+#      start_period: 20s
 
     deploy:
       mode: replicated
