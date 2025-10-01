@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  fluentd:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["fluentd", "-c", "/fluentd/etc/fluentd.conf", "-vv"]
+    volumes:
+      - ./fluentd.conf:/fluentd/etc/fluentd.conf:ro
+      - /var/log:/var/log:ro
+    ports:
+      - "24231:24231"   # Prometheus sẽ scrape /metrics tại cổng này
+      - "24220:24220" # (tuỳ chọn) monitor_agent
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        # Các nhãn để Prometheus phát hiện & scrape trong Swarm
+        - "prometheus.enable=true"
+        - "prometheus.port=24231"
+        - "prometheus.path=/metrics"
+        - "prometheus.job=fluentd"
+#      placement:
+#        constraints:
+#          - "node.role == worker"
+    networks:
+      - observability
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+#    deploy:
+#      placement:
+#        constraints:
+#          - "node.role == manager"
+    networks:
+      - observability
+
+  grafana:
+    image: grafana/grafana:10.4.3
+    ports:
+      - "3000:3000"
+    networks:
+      - observability
+
+networks:
+  observability:
+    driver: overlay
