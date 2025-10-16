@@ -1,0 +1,42 @@
+services:
+  mongo:
+    image: mongo:4.2.19
+    container_name: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+
+  envoy:
+    image: envoyproxy/envoy:v1.30-latest
+    container_name: envoy
+    depends_on: [mongo, aggregator]
+    command: ["-c", "/etc/envoy/envoy.yaml"]
+    ports:
+      - "27018:27018"      # Compass sẽ trỏ vào đây
+    volumes:
+      - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    # GỬI LOG RA FLUENTD (container aggregator)
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: "127.0.0.1:24224"      # gửi tới aggregator (publish 24224)
+        tag: "envoy.mongo"
+#        fluentd-async-connect: "true"
+#        fluentd-sub-second-precision: "true"
+
+  aggregator:
+    image: fluent/fluentd:v1.16-debian
+    container_name: aggregator
+    ports:
+      - "24224:24224"      # Docker logging driver sẽ gửi log tới đây
+    volumes:
+      - ./fluentd/fluent.conf:/fluentd/etc/fluent.conf:ro
+    command: ["fluentd","-c","/fluentd/etc/fluent.conf","-v"]
+
+volumes:
+  mongo_data:
